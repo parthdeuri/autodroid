@@ -44,6 +44,10 @@ object PortalClient {
         c.instanceFollowRedirects = false
         c.useCaches = false
         c.setRequestProperty("Connection", "close")
+        c.setRequestProperty(
+            "User-Agent",
+            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
+        )
         c.connectTimeout = 8000
         c.readTimeout = 8000
         if (c is HttpsURLConnection && c.url.host == HOST) {
@@ -65,6 +69,11 @@ object PortalClient {
             val code = c.responseCode
             val loc = c.getHeaderField("Location")
             LogStore.log(TAG, "probe generate_204 -> $code${if (loc != null) " Location=$loc" else ""}")
+            if (code != 204 && code != 302 && code != 303) {
+                val snippet = try { body(c).take(400).replace('
+', ' ') } catch (e: Exception) { "(unreadable)" }
+                LogStore.log(TAG, "probe body: $snippet")
+            }
             c.disconnect()
             code
         } catch (e: Exception) {
@@ -86,6 +95,8 @@ object PortalClient {
         val cookies: String
         val html: String
         try {
+            val addrs = try { network.getAllByName(HOST).joinToString { it.hostAddress ?: "?" } } catch (e: Exception) { "DNS failed: ${e.message}" }
+            LogStore.log(TAG, "resolved $HOST -> $addrs")
             val g = open(network, LOGIN_URL, "GET")
             val code = g.responseCode
             html = body(g)
