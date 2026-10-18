@@ -1,0 +1,118 @@
+package com.iitg.autologin
+
+import android.content.Context
+import androidx.work.Worker
+import androidx.work.WorkerParameters
+
+class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
+    private val tag = "Worker"
+
+    override fun doWork(): Result {
+        val ctx = applicationContext
+        val reason = inputData.getString("reason") ?: "?"
+        LogStore.log(tag, "start reason=$reason attempt=$runAttemptCount")
+
+        val store = try {
+            CredentialStore(ctx)
+        } catch (e: Exception) {
+            LogStore.log(tag, "cannot open secure storage", e)
+            return Result.failure()
+        }
+        if (store.username.isBlank() || store.password.isBlank()) {
+            LogStore.log(tag, "no credentials saved; nothing to do")
+            return Result.success()
+        }
+
+        val net = WifiUtil.wifiNetwork(ctx)
+        if (net == null) {
+            LogStore.log(tag, "not on Wi-Fi; nothing to do")
+            return Result.success()
+        }
+
+        val ssid = WifiUtil.currentSsid(ctx)
+        val allowed = store.ssids
+        if (ssid == null) {
+            LogStore.log(
+                tag,
+                "SSID unreadable (location permission fine=${WifiUtil.hasFineLocation(ctx)} " +
+                    "background=${WifiUtil.hasBackgroundLocation(ctx)}, or location is off); " +
+                    "falling back to portal reachability check"
+            )
+        } else if (ssid !in allowed) {
+            LogStore.log(tag, "SSID '$ssid' not in allow-list $allowed; skipping")
+            return Result.success()
+        } else {
+            LogStore.log(tag, "SSID '$ssid' is allowed")
+        }
+
+        val now = System.currentTimeMillis()
+        val ageMin = if (store.lastLoginAt == 0L) -1L else (now - store.lastLoginAt) / 60000
+        val code = PortalClient.probe(net)
+        if (code == 204) {
+            if (reason != "manual") {
+                if (ageMin < 0) {
+                    store.lastStatus = "Online (login time unknown)"
+                    LogStore.log(tag, "internet OK, no recorded login; re-check in 10 min")
+                    Scheduler.enqueueIn(ctx, 10, "online-recheck")
+                    return Result.success()
+                }
+                if (ageMin < RENEW_MIN) {
+                    store.lastStatus = "Online (last login $ageMin min ago)"
+                    LogStore.log(tag, "internet OK, last login $ageMin min ago; no action")
+                    Scheduler.enqueueIn(ctx, (RENEW_MIN - ageMin).coerceAtLeast(1), "renew-check")
+                    return Result.success()
+                }
+            }
+            LogStore.log(tag, "internet OK but re-logging in (reason=$reason, session age $ageMin min)")
+        } else {
+            LogStore.log(tag, "no internet (probe=$code); attempting portal login")
+        }
+
+        return when (val r = PortalClient.login(net, store.username, store.password)) {
+            is PortalClient.Result.Success -> {
+                Thread.sleep(1500)
+                val after = PortalClient.probe(net)
+                if (after == 204) {
+                    store.lastLoginAt = System.currentTimeMillis()
+                    store.lastStatus = "Logged in OK"
+                    LogStore.log(tag, "login verified (internet reachable)")
+                    Scheduler.enqueueIn(ctx, RENEW_MIN, "renew")
+                    Result.success()
+                } else {
+                    LogStore.log(tag, "portal accepted login but probe=$after (no internet yet)")
+                    retryOrFail(store, "Login accepted but no internet (probe $after)")
+                }
+            }
+            is PortalClient.Result.BadCredentials -> {
+                store.lastStatus = "Invalid credentials - fix them in the app"
+                LogStore.log(tag, "invalid credentials; not retrying")
+                Result.success()
+            }
+            is PortalClient.Result.Unreachable -> {
+                if (ssid == null) {
+                    LogStore.log(tag, "portal unreachable and SSID unknown -> probably not IITG; ignoring (${r.msg})")
+                    Result.success()
+                } else {
+                    retryOrFail(store, "Portal unreachable: ${r.msg}")
+                }
+            }
+            is PortalClient.Result.Failed -> retryOrFail(store, "Login failed: ${r.msg}")
+        }
+    }
+
+    private fun retryOrFail(store: CredentialStore, status: String): Result {
+        store.lastStatus = status
+        return if (runAttemptCount >= 3) {
+            LogStore.log(tag, "giving up after ${runAttemptCount + 1} attempts: $status")
+            Result.failure()
+        } else {
+            LogStore.log(tag, "will retry (attempt ${runAttemptCount + 1}): $status")
+            Result.retry()
+        }
+    }
+
+    companion object {
+        /** Portal session is 20 min; renew a little early. */
+        const val RENEW_MIN = 18L
+    }
+}
