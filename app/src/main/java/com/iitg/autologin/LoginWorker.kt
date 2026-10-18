@@ -70,8 +70,10 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         val now = System.currentTimeMillis()
         val ageMin = if (store.lastLoginAt == 0L) -1L else (now - store.lastLoginAt) / 60000
         val code = PortalClient.probe(net)
+        // Android reports "no internet" on this Wi-Fi: renew now, unless we only just logged in.
+        val force = reason == "manual" || (reason == "no-internet" && (ageMin < 0 || ageMin >= 2))
         if (code == 200) {
-            if (reason != "manual") {
+            if (!force) {
                 if (ageMin < 0) {
                     store.loggedIn = true; store.lastSsid = ssid ?: ""
                     store.lastStatus = "Online (login time unknown)"
@@ -125,7 +127,15 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                     retryOrFail(store, "Portal unreachable: ${r.msg}")
                 }
             }
-            is PortalClient.Result.Failed -> retryOrFail(store, "Login failed: ${r.msg}")
+            is PortalClient.Result.Failed -> {
+                if (code == 200 && r.msg.startsWith("magic token not found")) {
+                    store.lastStatus = "Portal says already logged in"
+                    LogStore.log(tag, "no magic token but keepalive says logged in; nothing to renew")
+                    Result.success()
+                } else {
+                    retryOrFail(store, "Login failed: ${r.msg}")
+                }
+            }
         }
     }
 

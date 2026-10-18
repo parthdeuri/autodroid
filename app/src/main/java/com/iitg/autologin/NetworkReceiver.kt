@@ -3,6 +3,8 @@ package com.iitg.autologin
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 
 /** Fired by the system whenever the Wi-Fi network's state/capabilities change. */
 class NetworkReceiver : BroadcastReceiver() {
@@ -13,6 +15,10 @@ class NetworkReceiver : BroadcastReceiver() {
             LogStore.log("NetworkReceiver", "app switched OFF; ignoring")
             return
         }
-        Scheduler.enqueueNow(context, "network-event")
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val wifi = WifiUtil.wifiNetwork(context)
+        val validated = wifi?.let { cm.getNetworkCapabilities(it)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) }
+        LogStore.log("NetworkReceiver", "Wi-Fi internet validated=$validated")
+        Scheduler.enqueueNow(context, if (validated == false) "no-internet" else "network-event")
     }
 }
