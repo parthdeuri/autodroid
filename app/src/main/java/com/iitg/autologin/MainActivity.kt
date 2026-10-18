@@ -229,10 +229,17 @@ class MainActivity : Activity() {
     private var setupShown = false
 
     /** On launch: ask for location first (system dialog), then show the checklist for the rest. */
+    private fun hasNotifications() =
+        android.os.Build.VERSION.SDK_INT < 33 ||
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
     private fun startupPermissionFlow() {
-        if (!WifiUtil.hasFineLocation(this)) {
-            LogStore.log("UI", "startup: requesting location permission")
-            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1)
+        if (!WifiUtil.hasFineLocation(this) || !hasNotifications()) {
+            LogStore.log("UI", "startup: requesting location/notification permissions")
+            val wanted = mutableListOf<String>()
+            if (!WifiUtil.hasFineLocation(this)) wanted.add(Manifest.permission.ACCESS_FINE_LOCATION)
+            if (!hasNotifications()) wanted.add(Manifest.permission.POST_NOTIFICATIONS)
+            requestPermissions(wanted.toTypedArray(), 1)
         } else {
             showSetupIfNeeded()
         }
@@ -240,7 +247,7 @@ class MainActivity : Activity() {
 
     private fun showSetupIfNeeded() {
         if (setupShown) return
-        if (!WifiUtil.hasBackgroundLocation(this) || !batteryOk()) {
+        if (!WifiUtil.hasBackgroundLocation(this) || !batteryOk() || !hasNotifications()) {
             setupShown = true
             showPermissions()
         }
@@ -308,7 +315,7 @@ class MainActivity : Activity() {
         btnAdd.text = if (cur != null) "+ Add current Wi-Fi ($cur)" else "+ Add current Wi-Fi"
         btnAdd.isAllCaps = false
 
-        val todo = listOf(WifiUtil.hasFineLocation(this), WifiUtil.hasBackgroundLocation(this), batteryOk()).count { !it }
+        val todo = listOf(WifiUtil.hasFineLocation(this), WifiUtil.hasBackgroundLocation(this), batteryOk(), hasNotifications()).count { !it }
         rowPerms.text = if (todo == 0) "Permissions: all set  ›" else "Permissions: $todo to fix  ›"
     }
 
@@ -325,6 +332,7 @@ class MainActivity : Activity() {
                     startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
                     toast("Permissions > Location > Allow all the time")
                 }
+                3 -> requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2)
                 2 -> try {
                     startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
                 } catch (e: Exception) {

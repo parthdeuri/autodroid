@@ -6,7 +6,6 @@ import androidx.work.WorkerParameters
 
 class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
     private val tag = "Worker"
-    private var patient = false
 
     override fun doWork(): Result {
         val ctx = applicationContext
@@ -62,7 +61,6 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         } else {
             LogStore.log(tag, "SSID '$ssid' is allowed")
             if (store.lastSsid != ssid) {
-                patient = true
                 LogStore.log(tag, "just connected to saved network '$ssid'; will log in if the portal asks")
             }
         }
@@ -70,8 +68,8 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         val now = System.currentTimeMillis()
         val ageMin = if (store.lastLoginAt == 0L) -1L else (now - store.lastLoginAt) / 60000
         val code = PortalClient.probe(net)
-        // Android reports "no internet" on this Wi-Fi: renew now, unless we only just logged in.
-        val force = reason == "manual" || (reason == "no-internet" && (ageMin < 0 || ageMin >= 2))
+        // Android reports "no internet" on this Wi-Fi: renew now.
+        val force = reason == "manual" || reason == "no-internet"
         if (code == 200) {
             if (!force) {
                 if (ageMin < 0) {
@@ -104,6 +102,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                     store.lastLoginAt = System.currentTimeMillis()
                     store.loggedIn = true; store.lastSsid = ssid ?: ""
                     store.userLoggedOut = false
+                    Notifier.clear(ctx)
                     store.lastStatus = "Logged in OK"
                     LogStore.log(tag, "login verified (internet reachable)")
                     Scheduler.enqueueIn(ctx, renew, "renew")
@@ -115,6 +114,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             }
             is PortalClient.Result.BadCredentials -> {
                 store.lastStatus = "Invalid credentials - fix them in the app"
+                Notifier.failure(ctx, "Invalid username or password. Fix them in the app.")
                 LogStore.log(tag, "invalid credentials; not retrying")
                 Result.success()
             }
@@ -142,8 +142,10 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
     private fun retryOrFail(store: CredentialStore, status: String): Result {
         store.lastStatus = status
         store.loggedIn = false
-        return if (runAttemptCount >= (if (patient) 5 else 3)) {
-            LogStore.log(tag, "giving up after ${runAttemptCount + 1} attempts: $status")
+        return if (runAttemptCount >= MAX_ATTEMPTS - 1) {
+            LogStore.log(tag, "giving up after ${runAttemptCount + 1} attempts: $status; retrying in 2 min")
+            Notifier.failure(applicationContext, "$status. Will retry in 2 minutes.")
+            Scheduler.enqueueIn(applicationContext, 2, "retry-2min")
             Result.failure()
         } else {
             LogStore.log(tag, "will retry (attempt ${runAttemptCount + 1}): $status")
@@ -151,4 +153,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         }
     }
 
+    companion object {
+        const val MAX_ATTEMPTS = 3
+    }
 }
