@@ -67,6 +67,9 @@ class MainActivity : Activity() {
     }
 
     private val resets = mutableListOf<() -> Unit>()
+    private val changedChecks = mutableListOf<() -> Boolean>()
+    private val rowUpdaters = mutableListOf<() -> Unit>()
+    private lateinit var rowResetAll: TextView
 
     /** A read-only numeric setting with a default; Edit unlocks it, Save stores it and logs the change. */
     private fun addSetting(
@@ -108,8 +111,22 @@ class MainActivity : Activity() {
                 }
             }
         }
+        val btnReset = button("Reset") {
+            val old = get()
+            set(default)
+            et.setText(default.toString())
+            et.isEnabled = false
+            btn.text = "Edit"
+            LogStore.log("Settings", "$name reset to default: $old $unit -> $default $unit")
+            Scheduler.enqueueNow(this, "settings-changed")
+            toast("$name: $default $unit")
+            refresh()
+        }
+        line.addView(btnReset)
         line.addView(btn)
         root.addView(line)
+        changedChecks.add { get() != default }
+        rowUpdaters.add { btnReset.visibility = if (get() != default) View.VISIBLE else View.GONE }
         resets.add {
             val old = get()
             if (old != default) {
@@ -267,12 +284,14 @@ class MainActivity : Activity() {
         addSetting(root, "Login attempts per round", "tries", Defaults.MAX_ATTEMPTS, 1, 10, { store.maxAttempts }, { store.maxAttempts = it })
         addSetting(root, "First retry delay", "sec", Defaults.BACKOFF_SEC, 10, 600, { store.backoffSec }, { store.backoffSec = it })
         addSetting(root, "Wait after a failed round", "min", Defaults.RETRY_WAIT_MIN, 1, 120, { store.retryWaitMin }, { store.retryWaitMin = it })
-        root.addView(row("Reset settings to defaults") {
+        rowResetAll = row("Reset all settings to defaults") {
             resets.forEach { it() }
             LogStore.log("Settings", "all settings reset to defaults")
             Scheduler.enqueueNow(this, "settings-changed")
             toast("Settings reset")
-        })
+            refresh()
+        }
+        root.addView(rowResetAll)
 
         root.addView(small("Recent activity"))
         tvRecent = TextView(this).apply {
@@ -348,6 +367,8 @@ class MainActivity : Activity() {
         tvStatus.text = store.lastStatus
         tvStatus.setTextColor(if (store.loggedIn) ACCENT else Color.parseColor("#E8EAED"))
         btnLogout.visibility = if (store.loggedIn && store.enabled) View.VISIBLE else View.GONE
+        rowUpdaters.forEach { it() }
+        rowResetAll.visibility = if (changedChecks.any { it() }) View.VISIBLE else View.GONE
         tvRecent.text = LogStore.read(6000).trim().lines().takeLast(12).joinToString("\n")
         tvSub.text = if (last == 0L) "No login yet"
         else "Last login ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(last))}"
