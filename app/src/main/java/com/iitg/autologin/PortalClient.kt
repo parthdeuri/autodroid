@@ -43,6 +43,7 @@ object PortalClient {
         c.requestMethod = method
         c.instanceFollowRedirects = false
         c.useCaches = false
+        c.setRequestProperty("Connection", "close")
         c.connectTimeout = 8000
         c.readTimeout = 8000
         if (c is HttpsURLConnection && c.url.host == HOST) {
