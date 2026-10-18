@@ -57,7 +57,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         val now = System.currentTimeMillis()
         val ageMin = if (store.lastLoginAt == 0L) -1L else (now - store.lastLoginAt) / 60000
         val code = PortalClient.probe(net)
-        if (code == 204) {
+        if (code == 200) {
             if (reason != "manual") {
                 if (ageMin < 0) {
                     store.lastStatus = "Online (login time unknown)"
@@ -82,7 +82,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             is PortalClient.Result.Success -> {
                 Thread.sleep(1500)
                 val after = PortalClient.probe(net)
-                if (after == 204) {
+                if (after == 200) {
                     store.lastLoginAt = System.currentTimeMillis()
                     store.lastStatus = "Logged in OK"
                     LogStore.log(tag, "login verified (internet reachable)")
@@ -123,7 +123,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
     }
 
     companion object {
-        /** Portal session is 20 min; renew a little early. */
-        const val RENEW_MIN = 18L
+        /** Portal session is 20 min; re-login every 15. */
+        const val RENEW_MIN = 15L
     }
 }

@@ -19,7 +19,7 @@ object PortalClient {
     private const val HOST = "agnigarh.iitg.ac.in"
     private const val BASE = "https://$HOST:1442"
     private const val LOGIN_URL = "$BASE/login?"
-    private const val PROBE_URL = "http://connectivitycheck.gstatic.com/generate_204"
+    private const val PROBE_URL = "$BASE/keepalive?"
 
     sealed class Result {
         object Success : Result()
@@ -62,19 +62,18 @@ object PortalClient {
         return stream.use { it.readBytes().take(300_000).toByteArray().toString(Charsets.UTF_8) }
     }
 
-    /** HTTP status of generate_204 over [network] (204 = internet works), or -1 on error. */
+    /** HTTP status of the portal keepalive page over [network] (200 = logged in), or -1 on error. */
     fun probe(network: Network): Int {
         return try {
             val c = open(network, PROBE_URL, "GET")
             val code = c.responseCode
             val loc = c.getHeaderField("Location")
-            LogStore.log(TAG, "probe generate_204 -> $code${if (loc != null) " Location=$loc" else ""}")
-            if (code != 204 && code != 302 && code != 303) {
-                val snippet = try { body(c).take(400).replace("\n", " ") } catch (e: Exception) { "(unreadable)" }
-                LogStore.log(TAG, "probe body: $snippet")
-            }
+            LogStore.log(TAG, "probe keepalive -> $code${if (loc != null) " Location=$loc" else ""}")
+            val text = if (code == 302 || code == 303) "" else try { body(c) } catch (e: Exception) { "" }
+            LogStore.log(TAG, "probe body: ${text.take(200).replace("\n", " ")}")
             c.disconnect()
-            code
+            // A 200 that is really the login form (has a magic token) means logged out.
+            if (code == 200 && text.contains("name=\"magic\"")) 401 else code
         } catch (e: Exception) {
             LogStore.log(TAG, "probe failed: ${e.javaClass.simpleName}: ${e.message}")
             -1
