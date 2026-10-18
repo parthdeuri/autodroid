@@ -36,6 +36,16 @@ class CredentialStore(ctx: Context) {
         get() = prefs.getBoolean("logged_in", false)
         set(v) = prefs.edit().putBoolean("logged_in", v).apply()
 
+    /** Minutes between scheduled re-logins (portal session lasts ~20). */
+    var renewMin: Int
+        get() = prefs.getInt("renew_min", 15)
+        set(v) = prefs.edit().putInt("renew_min", v.coerceAtLeast(1)).apply()
+
+    /** SSID we were last connected to, so reconnecting to a saved network is noticed. */
+    var lastSsid: String
+        get() = prefs.getString("last_ssid", "") ?: ""
+        set(v) = prefs.edit().putString("last_ssid", v).apply()
+
     var lastLoginAt: Long
         get() = prefs.getLong("last_login", 0L)
         set(v) = prefs.edit().putLong("last_login", v).apply()

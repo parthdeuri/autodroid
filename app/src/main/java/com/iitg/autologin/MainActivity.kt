@@ -30,6 +30,7 @@ import java.util.Date
 class MainActivity : Activity() {
     private lateinit var store: CredentialStore
     private lateinit var etUser: EditText
+    private lateinit var etRenew: EditText
     private lateinit var etPass: EditText
     private lateinit var tvStatus: TextView
     private lateinit var tvSub: TextView
@@ -140,11 +141,22 @@ class MainActivity : Activity() {
             }
         })
         root.addView(passRow)
+        root.addView(small("Re-login every (minutes)"))
+        etRenew = EditText(this).apply {
+            setSingleLine()
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(store.renewMin.toString())
+        }
+        root.addView(etRenew)
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val half = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         actions.addView(button("Save") {
             store.username = etUser.text.toString().trim()
             store.password = etPass.text.toString()
+            val mins = etRenew.text.toString().toIntOrNull()?.coerceAtLeast(1) ?: 15
+            store.renewMin = mins
+            etRenew.setText(mins.toString())
+            Scheduler.enqueueNow(this, "settings-changed")
             LogStore.log("UI", "credentials saved (user=${store.username})")
             Scheduler.ensure(this)
             toast("Saved")
