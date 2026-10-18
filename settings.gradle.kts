@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "iitg-autologin"
+rootProject.name = "autodroid"
 include(":app")

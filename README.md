@@ -82,11 +82,23 @@ There is no local Android Studio setup. GitHub Actions builds a debug APK on eve
 
 1. Push to `master`.
 2. Open the repo's **Actions** tab, then the latest run.
-3. Download the `iitg-autologin-debug` artifact and unzip it to get `app-debug.apk`. A smaller
-   `iitg-autologin-release` artifact (`app-release.apk`) is built too; if its step fails, the debug APK is still produced.
+3. Download the `autodroid-debug` artifact and unzip it to get `autodroid-debug.apk`. A smaller
+   `autodroid-release` artifact is built too; if its step fails, the debug APK is still produced.
 4. Copy the APK to your phone and install it. Android will ask you to allow installs from that app.
 
 If a build fails, open the failed step and look for lines starting with `e:`.
+
+## Releases
+
+Push a version tag to publish a release APK on the repository's Releases page:
+
+```bash
+git tag v1.1
+git push origin v1.1
+```
+
+The **Release** workflow (`.github/workflows/release.yml`) builds the release APK and attaches it as
+`Autodroid-v1.1.apk`. Raise `versionCode` and `versionName` in `app/build.gradle.kts` first.
 
 ## Troubleshooting
 

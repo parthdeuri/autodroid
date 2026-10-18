@@ -26,17 +26,24 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
 
+      - name: Name the debug APK
+        run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/autodroid-debug.apk
+
       - uses: actions/upload-artifact@v4
         with:
-          name: iitg-autologin-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: autodroid-debug
+          path: app/build/outputs/apk/debug/autodroid-debug.apk
 
       - name: Build release APK (smaller, minified)
         continue-on-error: true
         run: gradle assembleRelease --stacktrace
 
+      - name: Name the release APK
+        continue-on-error: true
+        run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/autodroid-release.apk
+
       - uses: actions/upload-artifact@v4
         with:
-          name: iitg-autologin-release
-          path: app/build/outputs/apk/release/app-release.apk
+          name: autodroid-release
+          path: app/build/outputs/apk/release/autodroid-release.apk
           if-no-files-found: warn

@@ -21,7 +21,7 @@ object LogStore {
 
     @Synchronized
     fun log(tag: String, msg: String, t: Throwable? = null) {
-        Log.i("IITGAutologin", "[$tag] $msg", t)
+        Log.i("Autodroid", "[$tag] $msg", t)
         val f = file ?: return
         try {
             if (f.length() > MAX_BYTES) {
