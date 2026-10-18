@@ -23,6 +23,10 @@ class CredentialStore(ctx: Context) {
         get() = prefs.getString("pass", "") ?: ""
         set(v) = prefs.edit().putString("pass", v).apply()
 
+    var enabled: Boolean
+        get() = prefs.getBoolean("enabled", true)
+        set(v) = prefs.edit().putBoolean("enabled", v).apply()
+
     var lastLoginAt: Long
         get() = prefs.getLong("last_login", 0L)
         set(v) = prefs.edit().putLong("last_login", v).apply()

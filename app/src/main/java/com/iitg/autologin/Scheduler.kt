@@ -20,12 +20,34 @@ object Scheduler {
 
     /** Register system-held Wi-Fi callback + periodic fallback. Safe to call repeatedly. */
     fun ensure(ctx: Context) {
+        if (!CredentialStore(ctx).enabled) {
+            LogStore.log(TAG, "ensure(): app is switched OFF; nothing scheduled")
+            return
+        }
         registerNetworkCallback(ctx)
         val req = PeriodicWorkRequestBuilder<LoginWorker>(15, TimeUnit.MINUTES)
             .setInputData(reason("periodic"))
             .build()
         WorkManager.getInstance(ctx).enqueueUniquePeriodicWork("login-periodic", ExistingPeriodicWorkPolicy.KEEP, req)
         LogStore.log(TAG, "ensure(): callback registered, periodic 15 min work kept")
+    }
+
+    private fun callbackIntent(ctx: Context) = PendingIntent.getBroadcast(
+        ctx, 0,
+        Intent(ctx, NetworkReceiver::class.java),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+    )
+
+    /** Switch off: drop the system callback and cancel all pending work. */
+    fun disable(ctx: Context) {
+        try {
+            val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            cm.unregisterNetworkCallback(callbackIntent(ctx))
+        } catch (e: Exception) {
+            LogStore.log(TAG, "unregisterNetworkCallback: ${e.message}")
+        }
+        WorkManager.getInstance(ctx).cancelAllWork()
+        LogStore.log(TAG, "disable(): callback removed, all work cancelled")
     }
 
     private fun registerNetworkCallback(ctx: Context) {
@@ -35,12 +57,7 @@ object Scheduler {
                 .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 .build()
-            val pi = PendingIntent.getBroadcast(
-                ctx, 0,
-                Intent(ctx, NetworkReceiver::class.java),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            )
-            cm.registerNetworkCallback(request, pi)
+            cm.registerNetworkCallback(request, callbackIntent(ctx))
         } catch (e: Exception) {
             LogStore.log(TAG, "registerNetworkCallback failed", e)
         }

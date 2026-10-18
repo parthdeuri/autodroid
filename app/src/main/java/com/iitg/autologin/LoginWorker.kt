@@ -18,13 +18,20 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             LogStore.log(tag, "cannot open secure storage", e)
             return Result.failure()
         }
+        if (!store.enabled) {
+            store.lastStatus = "Off"
+            LogStore.log(tag, "app switched OFF; nothing to do")
+            return Result.success()
+        }
         if (store.username.isBlank() || store.password.isBlank()) {
+            store.lastStatus = "No credentials saved"
             LogStore.log(tag, "no credentials saved; nothing to do")
             return Result.success()
         }
 
         val net = WifiUtil.wifiNetwork(ctx)
         if (net == null) {
+            store.lastStatus = "Not connected to Wi-Fi"
             LogStore.log(tag, "not on Wi-Fi; nothing to do")
             return Result.success()
         }
@@ -32,6 +39,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         val ssid = WifiUtil.currentSsid(ctx)
         val allowed = store.ssids
         if (ssid == null) {
+            store.lastStatus = "Can't read Wi-Fi name (check permissions); trying portal anyway"
             LogStore.log(
                 tag,
                 "SSID unreadable (location permission fine=${WifiUtil.hasFineLocation(ctx)} " +
@@ -39,6 +47,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                     "falling back to portal reachability check"
             )
         } else if (ssid !in allowed) {
+            store.lastStatus = "Skipped: '$ssid' is not in your Wi-Fi list"
             LogStore.log(tag, "SSID '$ssid' not in allow-list $allowed; skipping")
             return Result.success()
         } else {
@@ -65,6 +74,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             }
             LogStore.log(tag, "internet OK but re-logging in (reason=$reason, session age $ageMin min)")
         } else {
+            store.lastStatus = "No internet (probe $code); logging in..."
             LogStore.log(tag, "no internet (probe=$code); attempting portal login")
         }
 
@@ -90,6 +100,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             }
             is PortalClient.Result.Unreachable -> {
                 if (ssid == null) {
+                    store.lastStatus = "Not on IITG portal (${r.msg})"
                     LogStore.log(tag, "portal unreachable and SSID unknown -> probably not IITG; ignoring (${r.msg})")
                     Result.success()
                 } else {

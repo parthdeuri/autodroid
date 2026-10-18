@@ -9,6 +9,10 @@ class NetworkReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val extras = intent.extras?.keySet()?.joinToString() ?: "none"
         LogStore.log("NetworkReceiver", "Wi-Fi network event (extras: $extras)")
+        if (!CredentialStore(context).enabled) {
+            LogStore.log("NetworkReceiver", "app switched OFF; ignoring")
+            return
+        }
         Scheduler.enqueueNow(context, "network-event")
     }
 }

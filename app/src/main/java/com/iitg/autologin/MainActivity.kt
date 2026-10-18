@@ -13,7 +13,10 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.InputType
 import android.view.Gravity
+import android.os.Handler
+import android.os.Looper
 import android.widget.Button
+import android.widget.Switch
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -32,6 +35,15 @@ class MainActivity : Activity() {
     private lateinit var ssidList: LinearLayout
     private lateinit var btnAdd: Button
     private lateinit var rowPerms: TextView
+    private lateinit var swEnabled: Switch
+    private lateinit var tvRecent: TextView
+    private val handler = Handler(Looper.getMainLooper())
+    private val ticker = object : Runnable {
+        override fun run() {
+            refresh()
+            handler.postDelayed(this, 3000)
+        }
+    }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -65,11 +77,32 @@ class MainActivity : Activity() {
         }
         setContentView(ScrollView(this).apply { addView(root) })
 
-        root.addView(TextView(this).apply {
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        titleRow.addView(TextView(this).apply {
             text = "IITG Autologin"
             textSize = 20f
             setTypeface(typeface, Typeface.BOLD)
-        })
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        swEnabled = Switch(this).apply { isChecked = store.enabled }
+        swEnabled.setOnCheckedChangeListener { _, on ->
+            if (store.enabled != on) {
+                store.enabled = on
+                LogStore.log("UI", "app switched ${if (on) "ON" else "OFF"}")
+                if (on) {
+                    Scheduler.ensure(this)
+                    Scheduler.enqueueNow(this, "switched-on")
+                } else {
+                    Scheduler.disable(this)
+                    store.lastStatus = "Off"
+                }
+                refresh()
+            }
+        }
+        titleRow.addView(swEnabled)
+        root.addView(titleRow)
 
         tvStatus = TextView(this).apply { textSize = 15f; setTypeface(typeface, Typeface.BOLD); setPadding(0, dp(12), 0, 0) }
         tvSub = TextView(this).apply { textSize = 12f; setTextColor(Color.GRAY) }
@@ -136,6 +169,14 @@ class MainActivity : Activity() {
         }
         root.addView(btnAdd)
 
+        root.addView(small("Recent activity"))
+        tvRecent = TextView(this).apply {
+            typeface = Typeface.MONOSPACE
+            textSize = 10f
+            setTextIsSelectable(true)
+        }
+        root.addView(tvRecent)
+
         root.addView(small(""))
         rowPerms = row("") { showPermissions() }
         root.addView(rowPerms)
@@ -147,7 +188,12 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        refresh()
+        handler.post(ticker)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        handler.removeCallbacks(ticker)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -163,7 +209,9 @@ class MainActivity : Activity() {
 
     private fun refresh() {
         val last = store.lastLoginAt
+        if (swEnabled.isChecked != store.enabled) swEnabled.isChecked = store.enabled
         tvStatus.text = store.lastStatus
+        tvRecent.text = LogStore.read(6000).trim().lines().takeLast(12).joinToString("\n")
         tvSub.text = if (last == 0L) "No login yet"
         else "Last login ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(last))}"
 
