@@ -2,7 +2,7 @@
 
 A small Android app that keeps you logged in to the IIT Guwahati campus Wi-Fi captive portal.
 
-The portal ends your session after about 20 minutes even though the phone stays on Wi-Fi. Browser
+The portal ends your session after a fixed time (about 30 minutes) even though the phone stays on Wi-Fi. Browser
 extensions already handle this on a desktop. Autodroid does the same on Android, without a browser
 and without a constantly running service.
 
@@ -23,20 +23,32 @@ does not work.
 There is no polling loop. A check starts when:
 
 - Android reports a change on the Wi-Fi (connected, disconnected, or "no internet").
-- The re-login timer fires (default 15 minutes, editable in the app).
+- The re-login timer fires (default 25 minutes) or the session check runs (default every 10 minutes).
 - A background job fires (about every 15 minutes, the Android minimum).
 - The phone reboots or the app is updated.
 - You tap **Login now**, save settings, add a Wi-Fi to the list, or switch the app on.
 
 Each check acts only on Wi-Fi networks in your list. If the portal says you are logged out, it logs in.
-A failed login is retried 3 times, then you get a notification and it tries again 2 minutes later.
+A failed login is retried (3 attempts per round by default), then you get a notification and a new round
+starts 2 minutes later.
 A wrong password is not retried; you get a notification instead.
 
 ## Features
 
 - On/off switch for the whole app.
 - Wi-Fi list: add the network you are connected to, or remove one.
-- Re-login interval, read-only until you press **Edit**; changes are written to the log.
+- Settings, kept apart from your credentials. Each has a default, is read-only until you press **Edit**
+  (the button then becomes **Save**), and every change is written to the log as `old -> new`:
+
+  | Setting | Default |
+  |---|---|
+  | Re-login every | 25 min |
+  | Check session every | 10 min |
+  | Login attempts per round | 3 |
+  | First retry delay | 15 sec |
+  | Wait after a failed round | 2 min |
+
+  **Reset settings to defaults** restores all of them.
 - **Log out** button (calls `/logout?` and pauses auto-login until you tap **Login now**).
 - Log viewer with Share and Clear, plus a "Recent activity" panel on the main screen.
 - Failure notifications.
@@ -70,7 +82,8 @@ There is no local Android Studio setup. GitHub Actions builds a debug APK on eve
 
 1. Push to `master`.
 2. Open the repo's **Actions** tab, then the latest run.
-3. Download the `iitg-autologin-debug` artifact and unzip it to get `app-debug.apk`.
+3. Download the `iitg-autologin-debug` artifact and unzip it to get `app-debug.apk`. A smaller
+   `iitg-autologin-release` artifact (`app-release.apk`) is built too; if its step fails, the debug APK is still produced.
 4. Copy the APK to your phone and install it. Android will ask you to allow installs from that app.
 
 If a build fails, open the failed step and look for lines starting with `e:`.
@@ -80,8 +93,10 @@ If a build fails, open the failed step and look for lines starting with `e:`.
 - Open **Log** in the app. Each step of a login attempt is logged with its result.
 - On phones that kill background apps (Xiaomi, Oppo, Vivo, OnePlus and others), turn on Autostart and set
   battery to "No restrictions" for Autodroid. Avoid "Force stop".
-- A debug APK may be signed with a different key from one build to the next. If Android refuses to
-  update, uninstall the old version and install the new one.
+- Every build is signed with the same key (`app/autodroid.p12`), so a new APK updates the installed app.
+  That key and its password are public in this repository, which is fine for a personal sideloaded app
+  but means the signature does not prove who built an APK. If you ever install a build signed with an
+  older, different key, Android refuses the update; uninstall the old version first.
 
 ## Project layout
 

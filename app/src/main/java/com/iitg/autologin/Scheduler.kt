@@ -73,7 +73,7 @@ object Scheduler {
     fun enqueueNow(ctx: Context, why: String) {
         val req = OneTimeWorkRequestBuilder<LoginWorker>()
             .setInputData(reason(why))
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.SECONDS)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, CredentialStore(ctx).backoffSec.toLong(), TimeUnit.SECONDS)
             .build()
         WorkManager.getInstance(ctx).enqueueUniqueWork("login-now", ExistingWorkPolicy.KEEP, req)
         LogStore.log(TAG, "enqueueNow($why)")
@@ -83,7 +83,7 @@ object Scheduler {
         val req = OneTimeWorkRequestBuilder<LoginWorker>()
             .setInitialDelay(minutes, TimeUnit.MINUTES)
             .setInputData(reason(why))
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.SECONDS)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, CredentialStore(ctx).backoffSec.toLong(), TimeUnit.SECONDS)
             .build()
         WorkManager.getInstance(ctx).enqueueUniqueWork("login-later", ExistingWorkPolicy.REPLACE, req)
         LogStore.log(TAG, "next check in $minutes min ($why)")

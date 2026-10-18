@@ -36,6 +36,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         }
 
         val renew = store.renewMin.toLong()
+        val check = store.checkMin.toLong()
         val net = WifiUtil.wifiNetwork(ctx)
         if (net == null) {
             store.lastSsid = ""
@@ -75,15 +76,15 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                 if (ageMin < 0) {
                     store.loggedIn = true; store.lastSsid = ssid ?: ""
                     store.lastStatus = "Online (login time unknown)"
-                    LogStore.log(tag, "internet OK, no recorded login; re-check in 10 min")
-                    Scheduler.enqueueIn(ctx, 10, "online-recheck")
+                    LogStore.log(tag, "internet OK, no recorded login; re-check in $check min")
+                    Scheduler.enqueueIn(ctx, check, "online-recheck")
                     return Result.success()
                 }
                 if (ageMin < renew) {
                     store.loggedIn = true; store.lastSsid = ssid ?: ""
                     store.lastStatus = "Online (last login $ageMin min ago)"
                     LogStore.log(tag, "internet OK, last login $ageMin min ago; no action")
-                    Scheduler.enqueueIn(ctx, (renew - ageMin).coerceAtLeast(1), "renew-check")
+                    Scheduler.enqueueIn(ctx, minOf(check, renew - ageMin).coerceAtLeast(1), "renew-check")
                     return Result.success()
                 }
             }
@@ -105,7 +106,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                     Notifier.clear(ctx)
                     store.lastStatus = "Logged in OK"
                     LogStore.log(tag, "login verified (internet reachable)")
-                    Scheduler.enqueueIn(ctx, renew, "renew")
+                    Scheduler.enqueueIn(ctx, minOf(check, renew), "renew-check")
                     Result.success()
                 } else {
                     LogStore.log(tag, "portal accepted login but probe=$after (no internet yet)")
@@ -142,10 +143,10 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
     private fun retryOrFail(store: CredentialStore, status: String): Result {
         store.lastStatus = status
         store.loggedIn = false
-        return if (runAttemptCount >= MAX_ATTEMPTS - 1) {
-            LogStore.log(tag, "giving up after ${runAttemptCount + 1} attempts: $status; retrying in 2 min")
-            Notifier.failure(applicationContext, "$status. Will retry in 2 minutes.")
-            Scheduler.enqueueIn(applicationContext, 2, "retry-2min")
+        return if (runAttemptCount >= store.maxAttempts - 1) {
+            LogStore.log(tag, "giving up after ${runAttemptCount + 1} attempts: $status; new round in ${store.retryWaitMin} min")
+            Notifier.failure(applicationContext, "$status. Will retry in ${store.retryWaitMin} min.")
+            Scheduler.enqueueIn(applicationContext, store.retryWaitMin.toLong(), "retry-round")
             Result.failure()
         } else {
             LogStore.log(tag, "will retry (attempt ${runAttemptCount + 1}): $status")
@@ -153,7 +154,4 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         }
     }
 
-    companion object {
-        const val MAX_ATTEMPTS = 3
-    }
 }

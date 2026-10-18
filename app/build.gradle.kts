@@ -15,9 +15,26 @@ android {
         versionName = "1.0"
     }
 
+    // One fixed key for every build, so a new APK always updates the installed app.
+    signingConfigs {
+        create("autodroid") {
+            storeFile = file("autodroid.p12")
+            storeType = "pkcs12"
+            storePassword = "autodroid"
+            keyAlias = "autodroid"
+            keyPassword = "autodroid"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("autodroid")
+        }
         release {
-            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("autodroid")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 

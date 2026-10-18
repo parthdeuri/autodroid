@@ -30,8 +30,6 @@ import java.util.Date
 class MainActivity : Activity() {
     private lateinit var store: CredentialStore
     private lateinit var etUser: EditText
-    private lateinit var etRenew: EditText
-    private lateinit var btnRenewEdit: Button
     private lateinit var etPass: EditText
     private lateinit var tvStatus: TextView
     private lateinit var tvSub: TextView
@@ -58,6 +56,70 @@ class MainActivity : Activity() {
         textSize = 12f
         setTextColor(MUTED)
         setPadding(0, dp(16), 0, dp(4))
+    }
+
+    private fun section(text: String) = TextView(this).apply {
+        this.text = text
+        textSize = 14f
+        setTypeface(typeface, Typeface.BOLD)
+        setTextColor(ACCENT)
+        setPadding(0, dp(24), 0, dp(4))
+    }
+
+    private val resets = mutableListOf<() -> Unit>()
+
+    /** A read-only numeric setting with a default; Edit unlocks it, Save stores it and logs the change. */
+    private fun addSetting(
+        root: LinearLayout, name: String, unit: String, default: Int, min: Int, max: Int,
+        get: () -> Int, set: (Int) -> Unit
+    ) {
+        root.addView(small("$name (default $default $unit)"))
+        val et = EditText(this).apply {
+            setSingleLine()
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(get().toString())
+            isEnabled = false
+        }
+        val line = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        line.addView(et, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        lateinit var btn: Button
+        btn = button("Edit") {
+            if (!et.isEnabled) {
+                et.isEnabled = true
+                et.requestFocus()
+                et.setSelection(et.text.length)
+                btn.text = "Save"
+            } else {
+                val old = get()
+                val v = et.text.toString().toIntOrNull()?.coerceIn(min, max) ?: old
+                set(v)
+                et.setText(v.toString())
+                et.isEnabled = false
+                btn.text = "Edit"
+                if (v != old) {
+                    LogStore.log("Settings", "$name changed: $old $unit -> $v $unit")
+                    Scheduler.enqueueNow(this, "settings-changed")
+                    toast("$name: $v $unit")
+                } else {
+                    LogStore.log("Settings", "$name saved, unchanged at $old $unit")
+                }
+            }
+        }
+        line.addView(btn)
+        root.addView(line)
+        resets.add {
+            val old = get()
+            if (old != default) {
+                set(default)
+                LogStore.log("Settings", "$name reset to default: $old $unit -> $default $unit")
+            }
+            et.setText(get().toString())
+            et.isEnabled = false
+            btn.text = "Edit"
+        }
     }
 
     private fun button(text: String, onClick: () -> Unit) = Button(this).apply {
@@ -115,7 +177,7 @@ class MainActivity : Activity() {
         root.addView(tvStatus)
         root.addView(tvSub)
 
-        root.addView(small("Account"))
+        root.addView(section("Account"))
         etUser = EditText(this).apply { hint = "Username"; setSingleLine(); setText(store.username) }
         etPass = EditText(this).apply {
             hint = "Password"
@@ -142,43 +204,6 @@ class MainActivity : Activity() {
             }
         })
         root.addView(passRow)
-        root.addView(small("Re-login every (minutes)"))
-        etRenew = EditText(this).apply {
-            setSingleLine()
-            inputType = InputType.TYPE_CLASS_NUMBER
-            setText(store.renewMin.toString())
-            isEnabled = false
-        }
-        val renewRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        renewRow.addView(etRenew, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        btnRenewEdit = button("Edit") {
-            if (!etRenew.isEnabled) {
-                etRenew.isEnabled = true
-                etRenew.requestFocus()
-                etRenew.setSelection(etRenew.text.length)
-                btnRenewEdit.text = "Save"
-            } else {
-                val old = store.renewMin
-                val mins = etRenew.text.toString().toIntOrNull()?.coerceAtLeast(1) ?: old
-                store.renewMin = mins
-                etRenew.setText(mins.toString())
-                etRenew.isEnabled = false
-                btnRenewEdit.text = "Edit"
-                if (mins != old) {
-                    LogStore.log("Settings", "re-login interval changed: $old min -> $mins min")
-                    Scheduler.enqueueNow(this, "settings-changed")
-                    toast("Re-login every $mins min")
-                } else {
-                    LogStore.log("Settings", "re-login interval saved, unchanged at $old min")
-                }
-                refresh()
-            }
-        }
-        renewRow.addView(btnRenewEdit)
-        root.addView(renewRow)
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val half = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         actions.addView(button("Save") {
@@ -219,7 +244,7 @@ class MainActivity : Activity() {
         }
         root.addView(btnLogout)
 
-        root.addView(small("Wi-Fi networks"))
+        root.addView(section("Wi-Fi networks"))
         ssidList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(ssidList)
         btnAdd = button("") {
@@ -236,6 +261,19 @@ class MainActivity : Activity() {
         }
         root.addView(btnAdd)
 
+        root.addView(section("Settings"))
+        addSetting(root, "Re-login every", "min", Defaults.RENEW_MIN, 1, 1440, { store.renewMin }, { store.renewMin = it })
+        addSetting(root, "Check session every", "min", Defaults.CHECK_MIN, 1, 1440, { store.checkMin }, { store.checkMin = it })
+        addSetting(root, "Login attempts per round", "tries", Defaults.MAX_ATTEMPTS, 1, 10, { store.maxAttempts }, { store.maxAttempts = it })
+        addSetting(root, "First retry delay", "sec", Defaults.BACKOFF_SEC, 10, 600, { store.backoffSec }, { store.backoffSec = it })
+        addSetting(root, "Wait after a failed round", "min", Defaults.RETRY_WAIT_MIN, 1, 120, { store.retryWaitMin }, { store.retryWaitMin = it })
+        root.addView(row("Reset settings to defaults") {
+            resets.forEach { it() }
+            LogStore.log("Settings", "all settings reset to defaults")
+            Scheduler.enqueueNow(this, "settings-changed")
+            toast("Settings reset")
+        })
+
         root.addView(small("Recent activity"))
         tvRecent = TextView(this).apply {
             typeface = Typeface.MONOSPACE
@@ -248,6 +286,7 @@ class MainActivity : Activity() {
         rowPerms = row("") { showPermissions() }
         root.addView(rowPerms)
         root.addView(row("Log  ›") { showLog() })
+        root.addView(row("Details  ›") { openDetails() })
 
         Scheduler.ensure(this)
         refresh()
@@ -369,6 +408,15 @@ class MainActivity : Activity() {
                 }
             }
         }.setNegativeButton("Close", null).show()
+    }
+
+    private fun openDetails() {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/parthdeuri/autodroid")))
+        } catch (e: Exception) {
+            LogStore.log("UI", "cannot open details page", e)
+            toast("No browser found to open the page")
+        }
     }
 
     private fun showLog() {

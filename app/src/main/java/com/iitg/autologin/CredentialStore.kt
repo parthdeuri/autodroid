@@ -5,6 +5,15 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
+/** Factory defaults for every editable setting. */
+object Defaults {
+    const val RENEW_MIN = 25
+    const val CHECK_MIN = 10
+    const val MAX_ATTEMPTS = 3
+    const val BACKOFF_SEC = 15
+    const val RETRY_WAIT_MIN = 2
+}
+
 /** Credentials, SSID allow-list and last-status, kept in Keystore-backed encrypted prefs. */
 class CredentialStore(ctx: Context) {
     private val prefs: SharedPreferences = EncryptedSharedPreferences.create(
@@ -38,8 +47,28 @@ class CredentialStore(ctx: Context) {
 
     /** Minutes between scheduled re-logins (portal session lasts ~20). */
     var renewMin: Int
-        get() = prefs.getInt("renew_min", 15)
+        get() = prefs.getInt("renew_min", Defaults.RENEW_MIN)
         set(v) = prefs.edit().putInt("renew_min", v.coerceAtLeast(1)).apply()
+
+    /** Minutes between keepalive checks while logged in. */
+    var checkMin: Int
+        get() = prefs.getInt("check_min", Defaults.CHECK_MIN)
+        set(v) = prefs.edit().putInt("check_min", v.coerceAtLeast(1)).apply()
+
+    /** Login attempts per round before giving up and notifying. */
+    var maxAttempts: Int
+        get() = prefs.getInt("max_attempts", Defaults.MAX_ATTEMPTS)
+        set(v) = prefs.edit().putInt("max_attempts", v.coerceIn(1, 10)).apply()
+
+    /** Seconds before the first retry inside a round (grows exponentially). */
+    var backoffSec: Int
+        get() = prefs.getInt("backoff_sec", Defaults.BACKOFF_SEC)
+        set(v) = prefs.edit().putInt("backoff_sec", v.coerceAtLeast(10)).apply()
+
+    /** Minutes to wait before starting a new round after a failed one. */
+    var retryWaitMin: Int
+        get() = prefs.getInt("retry_wait_min", Defaults.RETRY_WAIT_MIN)
+        set(v) = prefs.edit().putInt("retry_wait_min", v.coerceAtLeast(1)).apply()
 
     /** SSID we were last connected to, so reconnecting to a saved network is noticed. */
     var lastSsid: String
