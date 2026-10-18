@@ -27,6 +27,15 @@ class CredentialStore(ctx: Context) {
         get() = prefs.getBoolean("enabled", true)
         set(v) = prefs.edit().putBoolean("enabled", v).apply()
 
+    /** True after the user pressed Log out; auto-login stays paused until they log in again. */
+    var userLoggedOut: Boolean
+        get() = prefs.getBoolean("user_logged_out", false)
+        set(v) = prefs.edit().putBoolean("user_logged_out", v).apply()
+
+    var loggedIn: Boolean
+        get() = prefs.getBoolean("logged_in", false)
+        set(v) = prefs.edit().putBoolean("logged_in", v).apply()
+
     var lastLoginAt: Long
         get() = prefs.getLong("last_login", 0L)
         set(v) = prefs.edit().putLong("last_login", v).apply()

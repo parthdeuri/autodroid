@@ -12,10 +12,11 @@
     <application
         android:name=".App"
         android:allowBackup="false"
-        android:icon="@android:drawable/sym_def_app_icon"
-        android:label="IITG Autologin"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="Autodroid"
         android:usesCleartextTraffic="true"
-        android:theme="@android:style/Theme.DeviceDefault.Light">
+        android:theme="@style/AppTheme">
 
         <activity
             android:name=".MainActivity"

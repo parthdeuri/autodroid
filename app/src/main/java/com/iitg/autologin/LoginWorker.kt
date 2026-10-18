@@ -23,6 +23,12 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             LogStore.log(tag, "app switched OFF; nothing to do")
             return Result.success()
         }
+        if (store.userLoggedOut && reason != "manual") {
+            store.loggedIn = false
+            store.lastStatus = "Logged out. Tap Login now to resume."
+            LogStore.log(tag, "user logged out; auto-login paused")
+            return Result.success()
+        }
         if (store.username.isBlank() || store.password.isBlank()) {
             store.lastStatus = "No credentials saved"
             LogStore.log(tag, "no credentials saved; nothing to do")
@@ -60,12 +66,14 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         if (code == 200) {
             if (reason != "manual") {
                 if (ageMin < 0) {
+                    store.loggedIn = true
                     store.lastStatus = "Online (login time unknown)"
                     LogStore.log(tag, "internet OK, no recorded login; re-check in 10 min")
                     Scheduler.enqueueIn(ctx, 10, "online-recheck")
                     return Result.success()
                 }
                 if (ageMin < RENEW_MIN) {
+                    store.loggedIn = true
                     store.lastStatus = "Online (last login $ageMin min ago)"
                     LogStore.log(tag, "internet OK, last login $ageMin min ago; no action")
                     Scheduler.enqueueIn(ctx, (RENEW_MIN - ageMin).coerceAtLeast(1), "renew-check")
@@ -74,7 +82,8 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             }
             LogStore.log(tag, "internet OK but re-logging in (reason=$reason, session age $ageMin min)")
         } else {
-            store.lastStatus = "No internet (probe $code); logging in..."
+            store.loggedIn = false
+            store.lastStatus = "Not logged in (probe $code); logging in..."
             LogStore.log(tag, "no internet (probe=$code); attempting portal login")
         }
 
@@ -84,6 +93,8 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                 val after = PortalClient.probe(net)
                 if (after == 200) {
                     store.lastLoginAt = System.currentTimeMillis()
+                    store.loggedIn = true
+                    store.userLoggedOut = false
                     store.lastStatus = "Logged in OK"
                     LogStore.log(tag, "login verified (internet reachable)")
                     Scheduler.enqueueIn(ctx, RENEW_MIN, "renew")
@@ -113,6 +124,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
 
     private fun retryOrFail(store: CredentialStore, status: String): Result {
         store.lastStatus = status
+        store.loggedIn = false
         return if (runAttemptCount >= 3) {
             LogStore.log(tag, "giving up after ${runAttemptCount + 1} attempts: $status")
             Result.failure()

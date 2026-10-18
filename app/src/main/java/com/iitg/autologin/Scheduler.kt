@@ -65,6 +65,11 @@ object Scheduler {
 
     private fun reason(r: String) = Data.Builder().putString("reason", r).build()
 
+    fun cancelLater(ctx: Context) {
+        WorkManager.getInstance(ctx).cancelUniqueWork("login-later")
+        LogStore.log(TAG, "pending renew check cancelled")
+    }
+
     fun enqueueNow(ctx: Context, why: String) {
         val req = OneTimeWorkRequestBuilder<LoginWorker>()
             .setInputData(reason(why))

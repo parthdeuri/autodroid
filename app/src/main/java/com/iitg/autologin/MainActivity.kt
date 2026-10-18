@@ -13,6 +13,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.InputType
 import android.view.Gravity
+import android.view.View
 import android.os.Handler
 import android.os.Looper
 import android.widget.Button
@@ -36,6 +37,9 @@ class MainActivity : Activity() {
     private lateinit var btnAdd: Button
     private lateinit var rowPerms: TextView
     private lateinit var swEnabled: Switch
+    private lateinit var btnLogout: Button
+    private val MUTED = Color.parseColor("#8B93A1")
+    private val ACCENT = Color.parseColor("#4FD1C5")
     private lateinit var tvRecent: TextView
     private val handler = Handler(Looper.getMainLooper())
     private val ticker = object : Runnable {
@@ -50,7 +54,7 @@ class MainActivity : Activity() {
     private fun small(text: String) = TextView(this).apply {
         this.text = text
         textSize = 12f
-        setTextColor(Color.GRAY)
+        setTextColor(MUTED)
         setPadding(0, dp(16), 0, dp(4))
     }
 
@@ -82,7 +86,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         titleRow.addView(TextView(this).apply {
-            text = "IITG Autologin"
+            text = "Autodroid"
             textSize = 20f
             setTypeface(typeface, Typeface.BOLD)
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
@@ -105,7 +109,7 @@ class MainActivity : Activity() {
         root.addView(titleRow)
 
         tvStatus = TextView(this).apply { textSize = 15f; setTypeface(typeface, Typeface.BOLD); setPadding(0, dp(12), 0, 0) }
-        tvSub = TextView(this).apply { textSize = 12f; setTextColor(Color.GRAY) }
+        tvSub = TextView(this).apply { textSize = 12f; setTextColor(MUTED) }
         root.addView(tvStatus)
         root.addView(tvSub)
 
@@ -148,10 +152,32 @@ class MainActivity : Activity() {
         }, half)
         actions.addView(button("Login now") {
             LogStore.log("UI", "manual login requested")
+            store.userLoggedOut = false
             Scheduler.enqueueNow(this, "manual")
             toast("Logging in. Check status in a few seconds.")
         }, half)
         root.addView(actions)
+
+        btnLogout = button("Log out") {
+            LogStore.log("UI", "logout requested")
+            btnLogout.isEnabled = false
+            Thread {
+                val net = WifiUtil.wifiNetwork(this)
+                val ok = net != null && PortalClient.logout(net)
+                if (ok) {
+                    store.userLoggedOut = true
+                    store.loggedIn = false
+                    store.lastStatus = "Logged out. Tap Login now to resume."
+                    Scheduler.cancelLater(this)
+                }
+                runOnUiThread {
+                    btnLogout.isEnabled = true
+                    toast(if (ok) "Logged out" else "Logout did not take effect. See the log.")
+                    refresh()
+                }
+            }.start()
+        }
+        root.addView(btnLogout)
 
         root.addView(small("Wi-Fi networks"))
         ssidList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -233,13 +259,15 @@ class MainActivity : Activity() {
         val last = store.lastLoginAt
         if (swEnabled.isChecked != store.enabled) swEnabled.isChecked = store.enabled
         tvStatus.text = store.lastStatus
+        tvStatus.setTextColor(if (store.loggedIn) ACCENT else Color.parseColor("#E8EAED"))
+        btnLogout.visibility = if (store.loggedIn && store.enabled) View.VISIBLE else View.GONE
         tvRecent.text = LogStore.read(6000).trim().lines().takeLast(12).joinToString("\n")
         tvSub.text = if (last == 0L) "No login yet"
         else "Last login ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(last))}"
 
         ssidList.removeAllViews()
         val ssids = store.ssids.sorted()
-        if (ssids.isEmpty()) ssidList.addView(TextView(this).apply { text = "None yet. Add at least one."; setTextColor(Color.GRAY) })
+        if (ssids.isEmpty()) ssidList.addView(TextView(this).apply { text = "None yet. Add at least one."; setTextColor(MUTED) })
         for (s in ssids) {
             val r = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL

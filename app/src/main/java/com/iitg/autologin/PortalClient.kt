@@ -163,6 +163,21 @@ object PortalClient {
         }
     }
 
+    /** GET /logout? then confirm via keepalive. True when the portal session is really gone. */
+    fun logout(network: Network): Boolean {
+        return try {
+            val r = request(network, "GET", "/logout?")
+            LogStore.log(TAG, "logout -> ${r.code} Location=${r.headers["location"]?.firstOrNull()} body=${r.body.take(150).replace("\n", " ")}")
+            Thread.sleep(800)
+            val after = probe(network)
+            LogStore.log(TAG, "after logout keepalive probe=$after")
+            after != 200
+        } catch (e: Exception) {
+            LogStore.log(TAG, "logout failed at ${e.message}")
+            false
+        }
+    }
+
     private fun attr(html: String, name: String): String? {
         val a = Regex("""name=["']$name["'][^>]*?value=["']([^"']*)["']""").find(html)
         if (a != null) return a.groupValues[1]
