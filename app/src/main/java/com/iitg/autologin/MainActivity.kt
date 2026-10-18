@@ -31,6 +31,7 @@ class MainActivity : Activity() {
     private lateinit var store: CredentialStore
     private lateinit var etUser: EditText
     private lateinit var etRenew: EditText
+    private lateinit var btnRenewEdit: Button
     private lateinit var etPass: EditText
     private lateinit var tvStatus: TextView
     private lateinit var tvSub: TextView
@@ -146,16 +147,43 @@ class MainActivity : Activity() {
             setSingleLine()
             inputType = InputType.TYPE_CLASS_NUMBER
             setText(store.renewMin.toString())
+            isEnabled = false
         }
-        root.addView(etRenew)
+        val renewRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        renewRow.addView(etRenew, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        btnRenewEdit = button("Edit") {
+            if (!etRenew.isEnabled) {
+                etRenew.isEnabled = true
+                etRenew.requestFocus()
+                etRenew.setSelection(etRenew.text.length)
+                btnRenewEdit.text = "Save"
+            } else {
+                val old = store.renewMin
+                val mins = etRenew.text.toString().toIntOrNull()?.coerceAtLeast(1) ?: old
+                store.renewMin = mins
+                etRenew.setText(mins.toString())
+                etRenew.isEnabled = false
+                btnRenewEdit.text = "Edit"
+                if (mins != old) {
+                    LogStore.log("Settings", "re-login interval changed: $old min -> $mins min")
+                    Scheduler.enqueueNow(this, "settings-changed")
+                    toast("Re-login every $mins min")
+                } else {
+                    LogStore.log("Settings", "re-login interval saved, unchanged at $old min")
+                }
+                refresh()
+            }
+        }
+        renewRow.addView(btnRenewEdit)
+        root.addView(renewRow)
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val half = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         actions.addView(button("Save") {
             store.username = etUser.text.toString().trim()
             store.password = etPass.text.toString()
-            val mins = etRenew.text.toString().toIntOrNull()?.coerceAtLeast(1) ?: 15
-            store.renewMin = mins
-            etRenew.setText(mins.toString())
             Scheduler.enqueueNow(this, "settings-changed")
             LogStore.log("UI", "credentials saved (user=${store.username})")
             Scheduler.ensure(this)
