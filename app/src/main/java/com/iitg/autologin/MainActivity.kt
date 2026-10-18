@@ -184,6 +184,27 @@ class MainActivity : Activity() {
 
         Scheduler.ensure(this)
         refresh()
+        startupPermissionFlow()
+    }
+
+    private var setupShown = false
+
+    /** On launch: ask for location first (system dialog), then show the checklist for the rest. */
+    private fun startupPermissionFlow() {
+        if (!WifiUtil.hasFineLocation(this)) {
+            LogStore.log("UI", "startup: requesting location permission")
+            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1)
+        } else {
+            showSetupIfNeeded()
+        }
+    }
+
+    private fun showSetupIfNeeded() {
+        if (setupShown) return
+        if (!WifiUtil.hasBackgroundLocation(this) || !batteryOk()) {
+            setupShown = true
+            showPermissions()
+        }
     }
 
     override fun onResume() {
@@ -200,6 +221,7 @@ class MainActivity : Activity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         LogStore.log("UI", "permission result: ${permissions.toList()} -> ${grantResults.toList()}")
         refresh()
+        showSetupIfNeeded()
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
