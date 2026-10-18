@@ -202,6 +202,7 @@ class MainActivity : Activity() {
             } else {
                 store.addSsid(s)
                 LogStore.log("UI", "SSID added: $s")
+                Scheduler.enqueueNow(this, "ssid-added")
                 refresh()
             }
         }
