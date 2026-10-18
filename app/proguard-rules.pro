@@ -5,4 +5,4 @@
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn javax.annotation.**
 -dontwarn org.checkerframework.**
--keep class com.iitg.autologin.** { *; }
+-keep class com.autodroid.** { *; }

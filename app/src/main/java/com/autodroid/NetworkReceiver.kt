@@ -1,4 +1,4 @@
-package com.iitg.autologin
+package com.autodroid
 
 import android.content.BroadcastReceiver
 import android.content.Context

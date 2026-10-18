@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.iitg.autologin"
+    namespace = "com.autodroid"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.iitg.autologin"
+        applicationId = "com.autodroid"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

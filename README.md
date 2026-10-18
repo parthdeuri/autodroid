@@ -113,7 +113,7 @@ The **Release** workflow (`.github/workflows/release.yml`) builds the release AP
 ## Project layout
 
 ```
-app/src/main/java/com/iitg/autologin/
+app/src/main/java/com/autodroid/
   MainActivity.kt      settings screen
   PortalClient.kt      login, keepalive and logout over TLS
   LoginWorker.kt       the decision logic for each check
