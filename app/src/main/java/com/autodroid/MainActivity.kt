@@ -279,6 +279,7 @@ class MainActivity : Activity() {
         }
         root.addView(rowResetAll)
 
+        root.addView(section("Diagnostics"))
         root.addView(small("Recent activity"))
         tvRecent = TextView(this).apply {
             typeface = Typeface.MONOSPACE
@@ -286,12 +287,12 @@ class MainActivity : Activity() {
             setTextIsSelectable(true)
         }
         root.addView(tvRecent)
-
-        root.addView(small(""))
         rowPerms = row("") { showPermissions() }
         root.addView(rowPerms)
         root.addView(row("Log  ›") { showLog() })
-        root.addView(row("Details  ›") { openDetails() })
+
+        root.addView(section("About"))
+        root.addView(row("About Autodroid  ›") { showAbout() })
 
         Scheduler.ensure(this)
         refresh()
@@ -416,13 +417,33 @@ class MainActivity : Activity() {
         }.setNegativeButton("Close", null).show()
     }
 
-    private fun openDetails() {
+    private fun openRepo() {
         try {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/parthdeuri/autodroid")))
         } catch (e: Exception) {
-            LogStore.log("UI", "cannot open details page", e)
+            LogStore.log("UI", "cannot open GitHub page", e)
             toast("No browser found to open the page")
         }
+    }
+
+    private fun showAbout() {
+        val version = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (e: Exception) {
+            "?"
+        }
+        val body = TextView(this).apply {
+            text = "Autodroid $version\n\nKeeps you logged in to the IIT Guwahati campus Wi-Fi.\n\n" +
+                "Developed by Parthapratim Deuri\nwith the help of Claude\n\ngithub.com/parthdeuri/autodroid"
+            textSize = 15f
+            setPadding(dp(24), dp(16), dp(24), dp(8))
+        }
+        AlertDialog.Builder(this)
+            .setTitle("About")
+            .setView(body)
+            .setPositiveButton("Open GitHub") { _, _ -> openRepo() }
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     private fun showLog() {
