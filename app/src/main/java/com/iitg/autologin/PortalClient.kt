@@ -70,8 +70,7 @@ object PortalClient {
             val loc = c.getHeaderField("Location")
             LogStore.log(TAG, "probe generate_204 -> $code${if (loc != null) " Location=$loc" else ""}")
             if (code != 204 && code != 302 && code != 303) {
-                val snippet = try { body(c).take(400).replace('
-', ' ') } catch (e: Exception) { "(unreadable)" }
+                val snippet = try { body(c).take(400).replace("\n", " ") } catch (e: Exception) { "(unreadable)" }
                 LogStore.log(TAG, "probe body: $snippet")
             }
             c.disconnect()
