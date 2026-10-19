@@ -291,8 +291,8 @@ class MainActivity : Activity() {
         rowPerms = row("") { showPermissions() }
         root.addView(rowPerms)
         root.addView(row("Log  ›") { showLog() })
-        root.addView(row("Add Login now tile  ›") { addTile(LoginTileService::class.java, "Login now", R.drawable.ic_tile_login) })
-        root.addView(row("Add Auto-login tile  ›") { addTile(AutoLoginTileService::class.java, "Auto-login", R.drawable.ic_tile_auto) })
+        tileSwitch(root, "Login now tile", LoginTileService::class.java, "Login now", R.drawable.ic_tile_login)
+        tileSwitch(root, "Auto-login tile", AutoLoginTileService::class.java, "Auto-login", R.drawable.ic_tile_auto)
 
         root.addView(section("About"))
         root.addView(row("About Autodroid  ›") { showAbout() })
@@ -358,6 +358,7 @@ class MainActivity : Activity() {
         tvStatus.setTextColor(if (store.loggedIn) ACCENT else Color.parseColor("#E8EAED"))
         btnLogout.visibility = if (store.loggedIn && store.enabled) View.VISIBLE else View.GONE
         rowResetAll.visibility = if (changedChecks.any { it() }) View.VISIBLE else View.GONE
+        tileUpdaters.forEach { it() }
         tvRecent.text = LogStore.read(6000).trim().lines().takeLast(12).joinToString("\n")
         tvSub.text = if (last == 0L) "No login yet"
         else "Last login ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(last))}"
@@ -418,6 +419,58 @@ class MainActivity : Activity() {
                 }
             }
         }.setNegativeButton("Close", null).show()
+    }
+
+    private val tileUpdaters = mutableListOf<() -> Unit>()
+
+    /** A tile counts as "present" while its service component is enabled; disabling it removes it from the panel. */
+    private fun isTileEnabled(cn: ComponentName): Boolean =
+        when (packageManager.getComponentEnabledSetting(cn)) {
+            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED -> true
+            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED -> false
+            else -> try {
+                packageManager.getServiceInfo(cn, 0).enabled
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+    private fun setTileEnabled(cn: ComponentName, on: Boolean) {
+        packageManager.setComponentEnabledSetting(
+            cn,
+            if (on) android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            else android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            android.content.pm.PackageManager.DONT_KILL_APP
+        )
+    }
+
+    /** A switch that adds a Quick Settings tile (on) or removes it (off). */
+    private fun tileSwitch(root: LinearLayout, title: String, service: Class<*>, label: String, iconRes: Int) {
+        val cn = ComponentName(this, service)
+        val line = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(8), 0, dp(8))
+        }
+        line.addView(TextView(this).apply {
+            text = title
+            textSize = 15f
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        val sw = Switch(this).apply { isChecked = isTileEnabled(cn) }
+        sw.setOnCheckedChangeListener { _, on ->
+            if (on != isTileEnabled(cn)) {
+                setTileEnabled(cn, on)
+                LogStore.log("UI", "$title ${if (on) "added" else "removed"}")
+                if (on) {
+                    handler.postDelayed({ addTile(service, label, iconRes) }, 400)
+                } else {
+                    toast("$title removed from Quick Settings")
+                }
+            }
+        }
+        line.addView(sw)
+        root.addView(line)
+        tileUpdaters.add { if (sw.isChecked != isTileEnabled(cn)) sw.isChecked = isTileEnabled(cn) }
     }
 
     private fun addTile(service: Class<*>, label: String, iconRes: Int) {

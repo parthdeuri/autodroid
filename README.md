@@ -58,8 +58,9 @@ A wrong password is not retried; you get a notification instead.
   - **Auto-login** (power icon): a toggle that stays on or off. It is the same as the switch in the app: on registers the
     Wi-Fi listener and scheduled checks, off cancels them all.
 
-  Add each one from **Diagnostics, Add Login now tile** and **Add Auto-login tile** (Android 13 and later), or edit the panel with the
-  pencil and drag them in. Neither tile keeps a service running.
+  Each tile has its own switch under **Diagnostics**. Turning it on adds the tile to your panel (Android 13
+  and later ask you to confirm; on older versions drag it in with the pencil). Turning it off removes it.
+  Both start off. Neither tile keeps a service running.
 - Failure notifications.
 - Dark theme.
 

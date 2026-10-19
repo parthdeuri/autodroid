@@ -30,6 +30,7 @@
 
         <service
             android:name=".LoginTileService"
+            android:enabled="false"
             android:exported="true"
             android:icon="@drawable/ic_tile_login"
             android:label="Login now"
@@ -41,6 +42,7 @@
 
         <service
             android:name=".AutoLoginTileService"
+            android:enabled="false"
             android:exported="true"
             android:icon="@drawable/ic_tile_auto"
             android:label="Auto-login"
