@@ -11,8 +11,8 @@ android {
         applicationId = "com.autodroid"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "2.1"
+        versionCode = 4
+        versionName = "2.2"
     }
 
     // One fixed key for every build, so a new APK always updates the installed app.
