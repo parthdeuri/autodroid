@@ -56,7 +56,7 @@ A wrong password is not retried; you get a notification instead.
   - **Auto-login**: a toggle that stays on or off. It is the same as the switch in the app: on registers the
     Wi-Fi listener and scheduled checks, off cancels them all.
 
-  Add them from **Diagnostics, Add Quick Settings tile** (Android 13 and later), or edit the panel with the
+  Add each one from **Diagnostics, Add Login now tile** and **Add Auto-login tile** (Android 13 and later), or edit the panel with the
   pencil and drag them in. Neither tile keeps a service running.
 - Failure notifications.
 - Dark theme.

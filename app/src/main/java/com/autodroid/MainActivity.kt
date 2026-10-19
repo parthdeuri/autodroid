@@ -291,7 +291,8 @@ class MainActivity : Activity() {
         rowPerms = row("") { showPermissions() }
         root.addView(rowPerms)
         root.addView(row("Log  ›") { showLog() })
-        root.addView(row("Add Quick Settings tile  ›") { addTile() })
+        root.addView(row("Add Login now tile  ›") { addTile(LoginTileService::class.java, "Login now") })
+        root.addView(row("Add Auto-login tile  ›") { addTile(AutoLoginTileService::class.java, "Auto-login") })
 
         root.addView(section("About"))
         root.addView(row("About Autodroid  ›") { showAbout() })
@@ -419,20 +420,15 @@ class MainActivity : Activity() {
         }.setNegativeButton("Close", null).show()
     }
 
-    private fun addTile() {
+    private fun addTile(service: Class<*>, label: String) {
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             val sbm = getSystemService(android.app.StatusBarManager::class.java)
             val icon = android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_tile)
-            sbm.requestAddTileService(
-                ComponentName(this, AutoLoginTileService::class.java), "Auto-login", icon, mainExecutor
-            ) { r1 ->
-                LogStore.log("UI", "add Auto-login tile result: $r1")
-                sbm.requestAddTileService(
-                    ComponentName(this, LoginTileService::class.java), "Login now", icon, mainExecutor
-                ) { r2 -> LogStore.log("UI", "add Login now tile result: $r2") }
+            sbm.requestAddTileService(ComponentName(this, service), label, icon, mainExecutor) { result ->
+                LogStore.log("UI", "add '$label' tile result: $result")
             }
         } else {
-            toast("Swipe down twice, tap the pencil, and drag the Auto-login and Login now tiles into your panel.")
+            toast("Swipe down twice, tap the pencil, and drag the '$label' tile into your panel.")
         }
     }
 
