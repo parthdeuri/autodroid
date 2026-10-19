@@ -179,6 +179,10 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
     private fun retryOrFail(store: CredentialStore, status: String): Result {
         store.lastStatus = status
         store.loggedIn = false
+        if (inputData.getString("reason") == "manual") {
+            LogStore.log(tag, "manual login failed, not retrying: $status")
+            return Result.failure()
+        }
         return if (runAttemptCount >= store.maxAttempts - 1) {
             LogStore.log(tag, "giving up after ${runAttemptCount + 1} attempts: $status; new round in ${store.retryWaitMin} min")
             Notifier.failure(applicationContext, "$status. Will retry in ${store.retryWaitMin} min.")

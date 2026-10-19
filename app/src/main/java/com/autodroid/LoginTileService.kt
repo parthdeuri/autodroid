@@ -17,7 +17,7 @@ class LoginTileService : TileService() {
     private val poll = object : Runnable {
         override fun run() {
             render()
-            if (isRunning() && ++ticks < 120) handler.postDelayed(this, 1000)
+            if ((isRunning() || resultIsFresh()) && ++ticks < 140) handler.postDelayed(this, 1000)
         }
     }
 
@@ -28,9 +28,16 @@ class LoginTileService : TileService() {
         false
     }
 
+    /** The result stays on the tile for 10 seconds, then it goes back to "Tap to log in". */
+    private fun resultIsFresh(): Boolean = try {
+        System.currentTimeMillis() - CredentialStore(this).manualDoneAt < RESULT_MS
+    } catch (e: Exception) {
+        false
+    }
+
     override fun onStartListening() {
         render()
-        if (isRunning()) {
+        if (isRunning() || resultIsFresh()) {
             ticks = 0
             handler.removeCallbacks(poll)
             handler.postDelayed(poll, 1000)
@@ -62,7 +69,7 @@ class LoginTileService : TileService() {
         try {
             val store = CredentialStore(this)
             val running = isRunning()
-            val recent = System.currentTimeMillis() - store.manualDoneAt < 60_000
+            val recent = resultIsFresh()
             tile.label = "Login now"
             // Lit only while a login is running; otherwise off, with the last result as the subtitle.
             tile.state = if (running) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
@@ -78,5 +85,9 @@ class LoginTileService : TileService() {
             LogStore.log("Tile", "render failed: ${e.message}")
         }
         tile.updateTile()
+    }
+
+    companion object {
+        private const val RESULT_MS = 10_000L
     }
 }
