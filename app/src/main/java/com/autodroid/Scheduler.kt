@@ -38,6 +38,21 @@ object Scheduler {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
     )
 
+    /** Master on/off, shared by the in-app switch and the Quick Settings tile. */
+    fun setEnabled(ctx: Context, on: Boolean) {
+        val store = CredentialStore(ctx)
+        if (store.enabled == on) return
+        store.enabled = on
+        LogStore.log(TAG, "app switched ${if (on) "ON" else "OFF"}")
+        if (on) {
+            ensure(ctx)
+            enqueueNow(ctx, "switched-on")
+        } else {
+            disable(ctx)
+            store.lastStatus = "Off"
+        }
+    }
+
     /** Switch off: drop the system callback and cancel all pending work. */
     fun disable(ctx: Context) {
         try {

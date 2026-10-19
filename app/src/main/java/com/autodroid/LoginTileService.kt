@@ -47,7 +47,7 @@ class LoginTileService : TileService() {
         val tile = qsTile ?: return
         try {
             val store = CredentialStore(this)
-            tile.label = "Autodroid"
+            tile.label = "Login now"
             tile.state = if (store.loggedIn) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
             if (Build.VERSION.SDK_INT >= 29) {
                 tile.subtitle = when {

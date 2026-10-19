@@ -422,14 +422,17 @@ class MainActivity : Activity() {
     private fun addTile() {
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             val sbm = getSystemService(android.app.StatusBarManager::class.java)
+            val icon = android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_tile)
             sbm.requestAddTileService(
-                ComponentName(this, LoginTileService::class.java),
-                "Autodroid",
-                android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_tile),
-                mainExecutor
-            ) { result -> LogStore.log("UI", "add tile result: $result") }
+                ComponentName(this, AutoLoginTileService::class.java), "Auto-login", icon, mainExecutor
+            ) { r1 ->
+                LogStore.log("UI", "add Auto-login tile result: $r1")
+                sbm.requestAddTileService(
+                    ComponentName(this, LoginTileService::class.java), "Login now", icon, mainExecutor
+                ) { r2 -> LogStore.log("UI", "add Login now tile result: $r2") }
+            }
         } else {
-            toast("Swipe down twice, tap the pencil, and drag the Autodroid tile into your panel.")
+            toast("Swipe down twice, tap the pencil, and drag the Auto-login and Login now tiles into your panel.")
         }
     }
 
