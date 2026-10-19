@@ -3,6 +3,7 @@ package com.autodroid
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -290,6 +291,7 @@ class MainActivity : Activity() {
         rowPerms = row("") { showPermissions() }
         root.addView(rowPerms)
         root.addView(row("Log  ›") { showLog() })
+        root.addView(row("Add Quick Settings tile  ›") { addTile() })
 
         root.addView(section("About"))
         root.addView(row("About Autodroid  ›") { showAbout() })
@@ -415,6 +417,20 @@ class MainActivity : Activity() {
                 }
             }
         }.setNegativeButton("Close", null).show()
+    }
+
+    private fun addTile() {
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            val sbm = getSystemService(android.app.StatusBarManager::class.java)
+            sbm.requestAddTileService(
+                ComponentName(this, LoginTileService::class.java),
+                "Autodroid",
+                android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_tile),
+                mainExecutor
+            ) { result -> LogStore.log("UI", "add tile result: $result") }
+        } else {
+            toast("Swipe down twice, tap the pencil, and drag the Autodroid tile into your panel.")
+        }
     }
 
     private fun openRepo() {

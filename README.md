@@ -51,6 +51,9 @@ A wrong password is not retried; you get a notification instead.
   **Reset settings to defaults** restores all of them.
 - **Log out** button (calls `/logout?` and pauses auto-login until you tap **Login now**).
 - Log viewer with Share and Clear, plus a "Recent activity" panel on the main screen.
+- Quick Settings tile: tap it in the notification panel to run the same action as **Login now**.
+  Add it from **Diagnostics, Add Quick Settings tile** (Android 13 and later), or edit the panel with the
+  pencil and drag the Autodroid tile in. It runs only when tapped and needs no background service.
 - Failure notifications.
 - Dark theme.
 
