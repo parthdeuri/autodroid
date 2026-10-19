@@ -7,7 +7,8 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 
 /**
- * Quick Settings tile: tapping it does the same as "Login now" in the app.
+ * "Login now" tile: tapping it lights the tile up, runs the same action as the Login now button,
+ * then shows the result and turns the tile off again.
  * Android binds this service only while the panel is visible, so nothing runs in the background.
  */
 class LoginTileService : TileService() {
@@ -16,12 +17,24 @@ class LoginTileService : TileService() {
     private val poll = object : Runnable {
         override fun run() {
             render()
-            if (++ticks < 25) handler.postDelayed(this, 1000)
+            if (isRunning() && ++ticks < 120) handler.postDelayed(this, 1000)
         }
+    }
+
+    private fun isRunning(): Boolean = try {
+        val since = CredentialStore(this).manualRunningSince
+        since != 0L && System.currentTimeMillis() - since < 120_000
+    } catch (e: Exception) {
+        false
     }
 
     override fun onStartListening() {
         render()
+        if (isRunning()) {
+            ticks = 0
+            handler.removeCallbacks(poll)
+            handler.postDelayed(poll, 1000)
+        }
     }
 
     override fun onStopListening() {
@@ -29,11 +42,12 @@ class LoginTileService : TileService() {
     }
 
     override fun onClick() {
-        LogStore.log("Tile", "tile tapped: login now")
+        LogStore.log("Tile", "Login now tile tapped")
         try {
             val store = CredentialStore(this)
             store.userLoggedOut = false
             store.lastStatus = "Logging in..."
+            store.manualRunningSince = System.currentTimeMillis()
             Scheduler.enqueueNow(this, "manual")
         } catch (e: Exception) {
             LogStore.log("Tile", "could not start login", e)
@@ -47,13 +61,17 @@ class LoginTileService : TileService() {
         val tile = qsTile ?: return
         try {
             val store = CredentialStore(this)
+            val running = isRunning()
+            val recent = System.currentTimeMillis() - store.manualDoneAt < 60_000
             tile.label = "Login now"
-            tile.state = if (store.loggedIn) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+            // Lit only while a login is running; otherwise off, with the last result as the subtitle.
+            tile.state = if (running) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
             if (Build.VERSION.SDK_INT >= 29) {
                 tile.subtitle = when {
-                    !store.enabled -> "App is off"
-                    store.loggedIn -> "Logged in"
-                    else -> store.lastStatus.take(28)
+                    running -> "Logging in..."
+                    recent && store.manualOk -> "Logged in"
+                    recent -> "Failed: " + store.manualMsg.take(18)
+                    else -> "Tap to log in"
                 }
             }
         } catch (e: Exception) {

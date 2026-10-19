@@ -31,7 +31,7 @@
         <service
             android:name=".LoginTileService"
             android:exported="true"
-            android:icon="@drawable/ic_tile"
+            android:icon="@drawable/ic_tile_login"
             android:label="Login now"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
@@ -42,7 +42,7 @@
         <service
             android:name=".AutoLoginTileService"
             android:exported="true"
-            android:icon="@drawable/ic_tile"
+            android:icon="@drawable/ic_tile_auto"
             android:label="Auto-login"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>

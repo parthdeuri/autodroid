@@ -1,15 +1,48 @@
 package com.autodroid
 
+import android.content.ComponentName
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.service.quicksettings.TileService
+import android.widget.Toast
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 
 class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
     private val tag = "Worker"
+    private var loginSucceeded = false
 
     override fun doWork(): Result {
-        val ctx = applicationContext
         val reason = inputData.getString("reason") ?: "?"
+        val result = run(reason)
+        if (reason == "manual" && result != Result.retry()) finishManual()
+        return result
+    }
+
+    /** Tell the user how a manual login (button or tile) ended, and let the tile reset itself. */
+    private fun finishManual() {
+        val ctx = applicationContext
+        try {
+            val store = CredentialStore(ctx)
+            val ok = loginSucceeded
+            val msg = if (ok) "Logged in" else store.lastStatus
+            store.manualRunningSince = 0L
+            store.manualDoneAt = System.currentTimeMillis()
+            store.manualOk = ok
+            store.manualMsg = msg
+            LogStore.log(tag, "manual login finished: ${if (ok) "success" else "failure"} ($msg)")
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(ctx, "Autodroid: $msg", Toast.LENGTH_LONG).show()
+                TileService.requestListeningState(ctx, ComponentName(ctx, LoginTileService::class.java))
+            }
+        } catch (e: Exception) {
+            LogStore.log(tag, "finishManual failed", e)
+        }
+    }
+
+    private fun run(reason: String): Result {
+        val ctx = applicationContext
         LogStore.log(tag, "start reason=$reason attempt=$runAttemptCount")
 
         val store = try {
@@ -100,6 +133,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                 Thread.sleep(1500)
                 val after = PortalClient.probe(net)
                 if (after == 200) {
+                    loginSucceeded = true
                     store.lastLoginAt = System.currentTimeMillis()
                     store.loggedIn = true; store.lastSsid = ssid ?: ""
                     store.userLoggedOut = false
@@ -130,6 +164,8 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             }
             is PortalClient.Result.Failed -> {
                 if (code == 200 && r.msg.startsWith("magic token not found")) {
+                    loginSucceeded = true
+                    store.loggedIn = true
                     store.lastStatus = "Portal says already logged in"
                     LogStore.log(tag, "no magic token but keepalive says logged in; nothing to renew")
                     Result.success()

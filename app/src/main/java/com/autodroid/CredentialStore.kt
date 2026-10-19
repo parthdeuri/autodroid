@@ -75,6 +75,23 @@ class CredentialStore(ctx: Context) {
         get() = prefs.getString("last_ssid", "") ?: ""
         set(v) = prefs.edit().putString("last_ssid", v).apply()
 
+    /** Set by the Login now tile when it starts a login; cleared by the worker when that login ends. */
+    var manualRunningSince: Long
+        get() = prefs.getLong("manual_running", 0L)
+        set(v) = prefs.edit().putLong("manual_running", v).apply()
+
+    var manualDoneAt: Long
+        get() = prefs.getLong("manual_done_at", 0L)
+        set(v) = prefs.edit().putLong("manual_done_at", v).apply()
+
+    var manualOk: Boolean
+        get() = prefs.getBoolean("manual_ok", false)
+        set(v) = prefs.edit().putBoolean("manual_ok", v).apply()
+
+    var manualMsg: String
+        get() = prefs.getString("manual_msg", "") ?: ""
+        set(v) = prefs.edit().putString("manual_msg", v).apply()
+
     var lastLoginAt: Long
         get() = prefs.getLong("last_login", 0L)
         set(v) = prefs.edit().putLong("last_login", v).apply()
