@@ -52,7 +52,8 @@ A wrong password is not retried; you get a notification instead.
 - **Log out** button (calls `/logout?` and pauses auto-login until you tap **Login now**).
 - Log viewer with Share and Clear, plus a "Recent activity" panel on the main screen.
 - Two Quick Settings tiles, so you don't need to open the app:
-  - **Login now**: tap to run the same action as the **Login now** button, once.
+  - **Login now**: tap to run the same action as the **Login now** button, once. It works even when
+    auto-login is switched off, and schedules nothing afterwards.
   - **Auto-login**: a toggle that stays on or off. It is the same as the switch in the app: on registers the
     Wi-Fi listener and scheduled checks, off cancels them all.
 

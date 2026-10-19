@@ -18,7 +18,7 @@ class LoginWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             LogStore.log(tag, "cannot open secure storage", e)
             return Result.failure()
         }
-        if (!store.enabled) {
+        if (!store.enabled && reason != "manual") {
             store.lastStatus = "Off"
             LogStore.log(tag, "app switched OFF; nothing to do")
             return Result.success()

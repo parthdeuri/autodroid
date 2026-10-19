@@ -95,6 +95,10 @@ object Scheduler {
     }
 
     fun enqueueIn(ctx: Context, minutes: Long, why: String) {
+        if (!CredentialStore(ctx).enabled) {
+            LogStore.log(TAG, "app is OFF; not scheduling next check ($why)")
+            return
+        }
         val req = OneTimeWorkRequestBuilder<LoginWorker>()
             .setInitialDelay(minutes, TimeUnit.MINUTES)
             .setInputData(reason(why))
